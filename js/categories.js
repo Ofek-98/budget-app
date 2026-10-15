@@ -23,6 +23,32 @@
   // income | saving | transfer | expense
   const kindOf = (cat) => cat === INCOME ? 'income' : cat === SAVING ? 'saving' : cat === TRANSFER ? 'transfer' : 'expense';
 
+  // One colour per main category: income green, saving blue, transfers grey; expenses get distinct hues.
+  const COLORS = {
+    [INCOME]: '#16a34a',
+    [SAVING]: '#2563eb',
+    [TRANSFER]: '#a1a1aa',
+    'דיור': '#92400e',
+    'רכב ותחבורה': '#475569',
+    'סופרמרקט ותזונה': '#ea580c',
+    'פנאי ומסעדות': '#db2777',
+    'בריאות וביטוחים': '#0d9488',
+    'טיפוח והוצאות אישיות': '#c026d3',
+    'מינויים דיגיטליים': '#0891b2',
+    'ספורט, כושר, תחביבים ולימודים': '#ca8a04',
+    'חופשות וטיולים': '#7c3aed',
+    'כללי': '#78716c',
+  };
+  // Categories the user adds later get a stable colour from this list.
+  const EXTRA = ['#be123c', '#4d7c0f', '#1d4ed8', '#b45309', '#6d28d9', '#0f766e'];
+  const colorOf = (cat) => {
+    if (!cat) return null;
+    if (COLORS[cat]) return COLORS[cat];
+    let h = 0;
+    for (const ch of cat) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return EXTRA[h % EXTRA.length];
+  };
+
   // Category names MAX attaches to each row -> our category / sub-category.
   const MAX_HINTS = [
     [/מזון|סופר|צריכה/, 'סופרמרקט ותזונה', 'סופרמרקט'],
@@ -87,5 +113,5 @@
     [/ibi|אקסלנס|מיטב טרייד|אלטשולר|פסגות|interactive brokers/i, SAVING, 'שוק ההון'],
   ];
 
-  A.CAT = { INCOME, SAVING, TRANSFER, DEFAULT_CATEGORIES, kindOf, MAX_HINTS, SEED_RULES };
+  A.CAT = { INCOME, SAVING, TRANSFER, DEFAULT_CATEGORIES, kindOf, colorOf, MAX_HINTS, SEED_RULES };
 })(window.App);

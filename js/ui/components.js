@@ -64,8 +64,9 @@
   function CatSelect({ categories, cat, sub, onChange, small, allowEmpty = true }) {
     const cls = 'select' + (small ? ' sm' : '');
     const subs = categories[cat] || [];
+    const color = A.CAT.colorOf(cat);
     return html`<span class="row" style="gap:4px;flex-wrap:nowrap">
-      <select class=${cls} value=${cat || ''} onChange=${(e) => onChange(e.target.value, '')}>
+      <select class=${cls + (color ? ' cat-sel' : '')} style=${color ? '--cat:' + color : ''} value=${cat || ''} onChange=${(e) => onChange(e.target.value, '')}>
         ${allowEmpty && html`<option value="">— בחר קטגוריה —</option>`}
         ${Object.keys(categories).map((c) => html`<option value=${c}>${c}</option>`)}
       </select>

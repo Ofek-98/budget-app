@@ -2,6 +2,7 @@
 (function (A) {
   const { html, render, useState, useEffect } = htmPreact;
   const { ui } = A;
+  A.VERSION = 2; // bump together with the ?v= query in index.html
 
   const TABS = [
     ['dashboard', 'דשבורד', '📊', ui.Dashboard],
@@ -46,6 +47,7 @@
         ${TABS.map(navBtn)}
         <div class="spacer"></div>
         <${BackupPill} go=${go} />
+        <div class="small muted" style="padding:6px 10px 0">גרסה ${A.VERSION}</div>
       </aside>
       <main class="main"><${Page} key=${tab + (nav._k || '')} go=${go} nav=${nav} /></main>
       <nav class="bottom-nav">${TABS.map(navBtn)}</nav>

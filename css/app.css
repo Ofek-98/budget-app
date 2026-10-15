@@ -142,6 +142,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .input, .select { border: 1px solid var(--line-strong); background: var(--surface); border-radius: 8px; padding: 6px 9px; min-width: 0; }
 .input:focus, .select:focus, .btn:focus-visible, .nav-btn:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
 .input.sm, .select.sm { padding: 3px 6px; font-size: 13px; border-radius: 6px; }
+.select.cat-sel { border-color: color-mix(in srgb, var(--cat) 55%, var(--line-strong)); border-inline-start: 5px solid var(--cat); background-color: color-mix(in srgb, var(--cat) 11%, var(--surface)); font-weight: 550; }
 .input.num { direction: ltr; text-align: right; font-variant-numeric: tabular-nums; }
 .field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-2); }
 .field .input, .field .select { color: var(--ink); font-size: 14px; }
