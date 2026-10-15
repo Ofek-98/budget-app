@@ -2,7 +2,7 @@
 (function (A) {
   const { html, render, useState, useEffect } = htmPreact;
   const { ui } = A;
-  A.VERSION = 6;
+  A.VERSION = 7;
   A.connectSync = () => connect(); // bump together with the ?v= query in index.html
 
   const TABS = [
