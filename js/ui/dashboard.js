@@ -37,7 +37,10 @@
     if (!state.transactions.length) {
       return html`<div class="card"><${Empty} title="עדיין אין נתונים">
         <p>כדי להתחיל, ייבא את קובץ ה־Excel הקיים שלך או קבצים מחברות האשראי.</p>
-        <button class="btn primary" onClick=${() => go('import')}>למסך הייבוא</button></${Empty}></div>`;
+        <div class="row" style="justify-content:center">
+          <button class="btn primary" onClick=${() => go('import')}>למסך הייבוא</button>
+          ${A.sync.configured() && html`<button class="btn" onClick=${A.connectSync}>☁ כבר יש לי נתונים ב־Google Drive</button>`}
+        </div></${Empty}></div>`;
     }
 
     const kindRows = (kind) => {

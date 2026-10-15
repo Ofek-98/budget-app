@@ -42,6 +42,7 @@
     for (const k of Object.keys(d)) if (s[k] === undefined) s[k] = d[k];
     s.settings = Object.assign({}, d.settings, s.settings);
     for (const c of Object.keys(d.categories)) if (!s.categories[c]) s.categories[c] = d.categories[c];
+    if (!s.savedAt) s.savedAt = new Date().toISOString(); // data from before cloud sync existed
     // Sub-categories introduced in later versions (added once; deleting them afterwards sticks).
     s.addedSubs = s.addedSubs || [];
     for (const [c, sub] of [['כללי', 'עמלות וריבית'], ['כללי', 'משיכת מזומן'], ['רכב ותחבורה', 'תחבורה ציבורית'], ['רכב ותחבורה', 'אגרות ורישוי']]) {
@@ -65,14 +66,16 @@
     try { localStorage.setItem(KEY, JSON.stringify(state)); }
     catch (e) { A.toast && A.toast('שמירה מקומית נכשלה: ' + e.message, 'error'); }
     A.backup && A.backup.autoSave();
+    A.sync && A.sync.onLocalChange();
   }, 300);
 
   function notify() { version++; listeners.forEach((l) => l(version)); }
 
+  // savedAt marks every local change; cloud sync compares it with the copy in Google Drive.
   const store = {
     get: () => state,
     version: () => version,
-    update(fn) { fn(state); notify(); persistLocal(); },
+    update(fn) { fn(state); state.savedAt = new Date().toISOString(); notify(); persistLocal(); },
     replace(next) { state = migrate(next); notify(); persistLocal(); },
     reset() { state = defaults(); notify(); persistLocal(); },
     subscribe(l) { listeners.add(l); return () => listeners.delete(l); },

@@ -4,6 +4,24 @@
   const { U, F, CAT } = A;
   const { NumInput, TextInput, CatSelect } = A.ui;
 
+  function SyncCard() {
+    const [st, setSt] = useState(A.sync.status());
+    useEffect(() => { setSt(A.sync.status()); return A.sync.subscribe(setSt); }, []);
+    const on = A.sync.enabled();
+    const label = { ok: 'מסונכרן ✓', syncing: 'מסנכרן…', 'needs-auth': 'ממתין להתחברות', error: 'שגיאה', off: 'לא מחובר', unconfigured: 'עדיין לא הוגדר' }[st.state];
+    return html`<div class="card"><h2>סנכרון בין מכשירים (Google Drive)</h2>
+      <p class="small" style="margin-top:0">הנתונים נשמרים בתיקייה נסתרת ב־Google Drive שלך — רק האפליקציה הזו ניגשת אליה. מתחברים פעם אחת בכל מכשיר (מחשב, טלפון), ומשם כל שינוי מסתנכרן לבד.</p>
+      <div class="kv" style="margin-bottom:10px"><span>מצב</span><span class="v">${label}${st.last ? ' · ' + st.last : ''}</span></div>
+      ${st.state === 'unconfigured' ? html`<div class="muted small">הסנכרון עדיין לא הופעל באפליקציה.</div>` : html`<div class="row">
+        ${(!on || st.state === 'needs-auth') && html`<button class="btn primary" onClick=${A.connectSync}>${on ? 'התחברות מחדש' : 'התחברות עם Google'}</button>`}
+        ${on && st.state !== 'needs-auth' && html`<button class="btn" disabled=${st.state === 'syncing'} onClick=${() => A.sync.syncNow(true).then(() => A.toast('סונכרן')).catch((e) => A.toast(e.message, 'error'))}>סנכרון עכשיו</button>`}
+        ${on && html`<button class="btn ghost" onClick=${() => confirm('לנתק את המכשיר הזה מהסנכרון? הנתונים יישארו גם כאן וגם ב־Drive.') && A.sync.disconnect()}>ניתוק המכשיר</button>`}
+      </div>`}
+      ${st.error && html`<div class="small" style="color:var(--critical);margin-top:6px">${st.error}</div>`}
+      <div class="small muted mt">טיפ: חברו קודם את המכשיר שבו כבר יש נתונים (המחשב), ורק אחר כך את הטלפון — הטלפון ימשוך אותם.</div>
+    </div>`;
+  }
+
   function BackupCard() {
     const [st, setSt] = useState(A.backup.status());
     useEffect(() => A.backup.subscribe(setSt), []);
@@ -150,9 +168,10 @@
     return html`
       <div class="page-head"><h1>הגדרות</h1></div>
       <div class="grid g2">
+        <${SyncCard} />
         <${BackupCard} />
-        <${Params} />
       </div>
+      <div class="mt"><${Params} /></div>
       <div class="mt"><${Budgets} /></div>
       <div class="mt"><${Rules} /></div>
       <div class="mt"><${Categories} /></div>
