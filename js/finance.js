@@ -127,8 +127,11 @@
       const cats = expenseCats(state);
       if (sums.some((s) => s.byCat[UNCAT])) cats.push(UNCAT);
       const rows = cats.map((c) => ({ cat: c, values: sums.map((s) => (s.byCat[c] ? s.byCat[c].total : 0)) }));
-      const active = sums.map((s) => s.count > 0);
-      return { months, sums, rows, active };
+      // "active" = a full month of data (used for averages and colours); "partial" = only a few rows
+      // (tracking hadn't started yet, or the current month isn't fully imported).
+      const active = sums.map((s) => s.count >= 15);
+      const partial = sums.map((s) => s.count > 0 && s.count < 15);
+      return { months, sums, rows, active, partial };
     });
   }
 

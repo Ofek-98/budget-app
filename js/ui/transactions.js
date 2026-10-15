@@ -47,7 +47,8 @@
           ${t.desc && t.note && html`<div class="small muted ellipsis">${t.note}</div>`}
           ${t.needsReview && t.reason && html`<div class="small" style="color:var(--warning)">הצעה: ${t.reason}${t.conf ? ` (${Math.round(t.conf * 100)}%)` : ''}</div>`}
         </td>
-        ${!compact && html`<td class="small">${t.method}${t.card ? html` <span class="muted">${t.card}</span>` : ''}</td>`}
+        ${!compact && html`<td class="small">${t.method}${t.card ? html` <span class="muted">${t.card}</span>` : ''}
+          ${state.cards[t.card] && state.cards[t.card].owner && html` <${A.ui.OwnerChip} owner=${state.cards[t.card].owner} people=${state.settings.people} />`}</td>`}
         <td><${CatSelect} small categories=${state.categories} cat=${t.cat} sub=${t.sub} onChange=${(c, s) => categorize(t.id, c, s)} />
           ${t.needsReview && t.cat && html` <button class="btn sm" title="אשר הצעה" onClick=${() => categorize(t.id, t.cat, t.sub)}>✓</button>`}</td>
         <td class=${'n' + (t.amount < 0 ? ' neg' : '')}>${U.money(t.amount, true)}</td>
@@ -121,10 +122,10 @@
 
   function Transactions({ nav }) {
     const [state, v] = A.store.use();
-    const [q, setQ] = useState('');
-    const [month, setMonth] = useState(nav.month || '');
-    const [cat, setCat] = useState(nav.cat || '');
-    const [method, setMethod] = useState('');
+    // Filters can arrive from other screens (clicking a summary number) via nav.
+    const [q, setQ] = useState(nav.q || '');
+    const [f, setF] = useState(() => ({ period: nav.month || nav.year || '', cat: nav.cat || '', sub: nav.sub || '', kind: nav.kind || '', method: nav.method || '', owner: nav.owner || '' }));
+    const { period, cat, sub, kind, method, owner } = f;
     const [status, setStatus] = useState(nav.filter || 'all');
     const [selected, setSelected] = useState(new Set());
     const [bulk, setBulk] = useState({ cat: '', sub: '' });
@@ -135,18 +136,27 @@
     const reviewCount = state.transactions.filter((t) => t.needsReview).length;
     const checkCount = F.dataChecks(state).length;
 
+    const people = state.settings.people || [];
+    const ownerOf = (t) => (state.cards[t.card] && state.cards[t.card].owner) || (t.tags || []).find((g) => people.includes(g)) || '';
+    const kindOf = (t) => (t.cat ? CAT.kindOf(t.cat) : t.flow === 'in' ? '' : 'expense');
+    const years = [...new Set(months.map((m) => m.slice(0, 4)))].reverse();
+
     const list = useMemo(() => {
       const nq = q.trim().toLowerCase();
       return state.transactions.filter((t) => {
         if (status === 'review' && !t.needsReview) return false;
         if (status === 'uncat' && t.cat && t.sub) return false;
-        if (month && U.monthKey(t.date) !== month) return false;
-        if (cat && t.cat !== cat) return false;
+        if (period && !t.date.startsWith(period)) return false;
+        if (cat && (cat === F.UNCAT ? t.cat : t.cat !== cat)) return false;
+        if (sub && (t.sub || 'לא קוטלג') !== sub) return false;
+        if (kind && kindOf(t) !== kind) return false;
         if (method && t.method !== method) return false;
+        if (owner && ownerOf(t) !== owner) return false;
         if (nq && !(`${t.desc} ${t.note} ${t.sub} ${(t.tags || []).join(' ')} ${Math.abs(t.amount)}`.toLowerCase().includes(nq))) return false;
         return true;
       }).sort((a, b) => b.date.localeCompare(a.date) || (b.created || '').localeCompare(a.created || ''));
-    }, [v, q, month, cat, method, status]);
+    }, [v, q, f, status]);
+    const filtered = q || Object.values(f).some(Boolean);
 
     const total = U.sum(list, (t) => t.amount);
     const toggle = (id) => { const n = new Set(selected); n.has(id) ? n.delete(id) : n.add(id); setSelected(n); };
@@ -182,14 +192,22 @@
 
       ${status === 'checks' ? html`<${Checks} />` : html`
       <div class="card">
-        <div class="row" style="margin-bottom:12px">
+        <div class="row" style="margin-bottom:8px">
           <input class="input grow" style="min-width:180px" placeholder="חיפוש בית עסק, הערה או סכום…" value=${q} onInput=${(e) => setQ(e.target.value)} />
-          <select class="select" value=${month} onChange=${(e) => setMonth(e.target.value)}><option value="">כל החודשים</option>${[...months].reverse().map((m) => html`<option value=${m}>${U.monthLabel(m)}</option>`)}</select>
-          <select class="select" value=${cat} onChange=${(e) => setCat(e.target.value)}><option value="">כל הקטגוריות</option>${Object.keys(state.categories).map((c) => html`<option value=${c}>${c}</option>`)}</select>
-          <select class="select" value=${method} onChange=${(e) => setMethod(e.target.value)}><option value="">כל אמצעי התשלום</option>${methods.map((m) => html`<option value=${m}>${m}</option>`)}</select>
+        </div>
+        <div class="filterbar">
+          <select class="select sm" aria-label="תקופה" value=${period} onChange=${(e) => setF({ ...f, period: e.target.value })}><option value="">כל התקופות</option>
+            ${years.map((y) => html`<option value=${y}>שנת ${y}</option>`)}${[...months].reverse().map((m) => html`<option value=${m}>${U.monthLabel(m)}</option>`)}</select>
+          <select class="select sm" aria-label="סוג" value=${kind} onChange=${(e) => setF({ ...f, kind: e.target.value })}><option value="">הכנסות והוצאות</option>
+            <option value="income">הכנסות בלבד</option><option value="expense">הוצאות בלבד</option><option value="saving">חיסכון והשקעה</option><option value="transfer">העברות פנימיות</option></select>
+          <select class=${'select sm' + (cat ? ' cat-sel' : '')} style=${cat ? '--cat:' + CAT.colorOf(cat) : ''} aria-label="קטגוריה" value=${cat} onChange=${(e) => setF({ ...f, cat: e.target.value, sub: '' })}><option value="">כל הקטגוריות</option>${Object.keys(state.categories).map((c) => html`<option value=${c}>${c}</option>`)}<option value=${F.UNCAT}>${F.UNCAT}</option></select>
+          ${cat && state.categories[cat] && html`<select class="select sm" aria-label="תת־קטגוריה" value=${sub} onChange=${(e) => setF({ ...f, sub: e.target.value })}><option value="">כל התתי־קטגוריות</option>${[...state.categories[cat], 'לא קוטלג'].map((s) => html`<option value=${s}>${s}</option>`)}</select>`}
+          <select class="select sm" aria-label="אמצעי תשלום" value=${method} onChange=${(e) => setF({ ...f, method: e.target.value })}><option value="">כל אמצעי התשלום</option>${methods.map((m) => html`<option value=${m}>${m}</option>`)}</select>
+          ${people.length > 0 && Object.keys(state.cards).length > 0 && html`<select class="select sm" aria-label="בעלים" value=${owner} onChange=${(e) => setF({ ...f, owner: e.target.value })}><option value="">כל בני הבית</option>${people.map((p) => html`<option value=${p}>${p}</option>`)}</select>`}
+          ${filtered && html`<button class="btn sm ghost" onClick=${() => { setF({ period: '', cat: '', sub: '', kind: '', method: '', owner: '' }); setQ(''); }}>ניקוי סינון</button>`}
         </div>
         <div class="row" style="margin-bottom:10px">
-          <span class="badge brand">${list.length} עסקאות</span>${(cat || q) && html`<span class="badge">סה״כ ${U.money(total)}</span>`}
+          <span class="badge brand">${list.length} עסקאות</span>${filtered && html`<span class="badge">סה״כ ${U.money(total)}</span>`}
           <div class="grow"></div>
           ${status === 'review' && list.some((t) => t.cat) && html`<button class="btn sm primary" onClick=${approveSuggestions}>אשר את כל ההצעות המוצגות</button>`}
         </div>

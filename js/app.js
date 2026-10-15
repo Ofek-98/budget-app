@@ -2,13 +2,14 @@
 (function (A) {
   const { html, render, useState, useEffect } = htmPreact;
   const { ui } = A;
-  A.VERSION = 2; // bump together with the ?v= query in index.html
+  A.VERSION = 3; // bump together with the ?v= query in index.html
 
   const TABS = [
     ['dashboard', 'דשבורד', '📊', ui.Dashboard],
     ['transactions', 'עסקאות', '🧾', ui.Transactions],
     ['import', 'ייבוא', '⬆️', ui.Importer],
     ['annual', 'סיכום שנתי', '📅', ui.Annual],
+    ['insights', 'תובנות ותחזית', '💡', ui.Insights],
     ['funds', 'קופות וביטוחים', '🏦', ui.Funds],
     ['mortgage', 'משכנתה', '🏠', ui.MortgageView],
     ['networth', 'שווי נקי', '💎', ui.NetWorth],
@@ -62,6 +63,7 @@
     }
     A.backup.init();
     render(html`<${App} />`, document.getElementById('app'));
+    A.M.refreshLive(false); // Bank of Israel rate + CPI, at most once a day
   }
   boot();
 })(window.App);

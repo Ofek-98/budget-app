@@ -49,6 +49,18 @@
     return EXTRA[h % EXTRA.length];
   };
 
+  // Household members: a fixed colour per person (in the order of settings.people), "משותף" neutral slate.
+  const OWNER_COLORS = ['#0d9488', '#ea580c', '#7c3aed', '#db2777'];
+  const ownerColor = (owner, people) => {
+    if (!owner) return null;
+    if (owner === 'משותף') return '#64748b';
+    const i = (people || []).indexOf(owner);
+    if (i >= 0) return OWNER_COLORS[i % OWNER_COLORS.length];
+    let h = 0;
+    for (const ch of owner) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    return OWNER_COLORS[h % OWNER_COLORS.length];
+  };
+
   // Category names MAX attaches to each row -> our category / sub-category.
   const MAX_HINTS = [
     [/מזון|סופר|צריכה/, 'סופרמרקט ותזונה', 'סופרמרקט'],
@@ -113,5 +125,5 @@
     [/ibi|אקסלנס|מיטב טרייד|אלטשולר|פסגות|interactive brokers/i, SAVING, 'שוק ההון'],
   ];
 
-  A.CAT = { INCOME, SAVING, TRANSFER, DEFAULT_CATEGORIES, kindOf, colorOf, MAX_HINTS, SEED_RULES };
+  A.CAT = { INCOME, SAVING, TRANSFER, DEFAULT_CATEGORIES, kindOf, colorOf, ownerColor, MAX_HINTS, SEED_RULES };
 })(window.App);

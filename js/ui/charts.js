@@ -4,6 +4,9 @@
   const { U } = A;
 
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  // Series colours are CSS tokens ('--s1') or literal hex (owner / category colours).
+  const colorOf = (c) => (c.startsWith('--') ? css(c) : c);
+  const swatch = (c) => (c.startsWith('--') ? `var(${c})` : c);
   const compact = new Intl.NumberFormat('he-IL', { notation: 'compact', maximumFractionDigits: 1 });
   const tickMoney = (v) => '₪' + compact.format(v);
 
@@ -47,7 +50,7 @@
       if (!ref.current || typeof window.Chart === 'undefined') return;
       const surface = css('--surface');
       const datasets = series.map((s) => {
-        const color = css(s.color);
+        const color = colorOf(s.color);
         const type = s.kind || kind;
         return type === 'line'
           ? { type, label: s.label, data: s.data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 3, pointHoverRadius: 5, pointBackgroundColor: color, pointBorderColor: surface, pointBorderWidth: 2, tension: 0.25, borderDash: s.dashed ? [5, 4] : [], spanGaps: true, fill: false }
@@ -67,7 +70,7 @@
       <tbody>${labels.map((l, i) => html`<tr><td>${l}</td>${series.map((s) => html`<td class="n">${s.data[i] == null ? '—' : U.money(s.data[i])}</td>`)}</tr>`)}</tbody></table>`;
 
     return html`<div>
-      ${series.length > 1 && html`<div class="legend">${series.map((s) => html`<span><i style=${'background:var(' + s.color + ')'}></i>${s.label}</span>`)}</div>`}
+      ${series.length > 1 && html`<div class="legend">${series.map((s) => html`<span><i style=${'background:' + swatch(s.color)}></i>${s.label}</span>`)}</div>`}
       <div class="chart-box" style=${'height:' + height + 'px'}><canvas ref=${ref} role="img" aria-label=${series.map((s) => s.label).join(', ')}></canvas></div>
       <details class="small muted" style="margin-top:6px"><summary>הצג כטבלה</summary><div class="tbl-wrap">${table}</div></details>
     </div>`;

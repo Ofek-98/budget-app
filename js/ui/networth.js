@@ -9,7 +9,7 @@
   function compute(state) {
     const funds = U.sum(state.funds, (f) => f.balance || 0);
     const manual = U.sum(state.assets, (a) => a.value || 0);
-    const sched = state.mortgage && state.mortgage.tracks.length ? M.compute(state.mortgage) : null;
+    const sched = state.mortgage && state.mortgage.tracks.length ? M.compute(state.mortgage, [], M.actualPayments(state)) : null;
     const mortgage = sched ? M.summary(sched).balanceNow : 0;
     const debts = U.sum(state.liabilities, (l) => l.value || 0);
     const assets = funds + manual, liabilities = mortgage + debts;

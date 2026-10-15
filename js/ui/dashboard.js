@@ -14,9 +14,10 @@
     const [month, setMonth] = useState(() => nav.month || defaultMonth(state));
     const [drill, setDrill] = useState(null);
     const [showBlocks, setShowBlocks] = useState(false);
+    const [noOneOff, setNoOneOff] = useState(false);
 
     const months = F.months(state);
-    const s = F.monthSummary(state, month);
+    const s = F.monthSummary(state, month, noOneOff ? { excludeOneOff: true } : {});
     const prevM = F.prevMonths(state, month, 1)[0];
     const prev = prevM ? F.monthSummary(state, prevM) : null;
     const avg = F.averageOf(state, F.prevMonths(state, month, 3));
@@ -27,7 +28,7 @@
       const list = F.expenseCats(state).concat(s.byCat[F.UNCAT] ? [F.UNCAT] : []);
       return list.map((c) => ({ cat: c, total: s.byCat[c] ? s.byCat[c].total : 0, count: s.byCat[c] ? s.byCat[c].count : 0, budget: state.budgets[c] || 0, avg: avg ? avg.byCat[c] || 0 : null }))
         .sort((a, b) => b.total - a.total);
-    }, [v, month]);
+    }, [v, month, noOneOff]);
     const maxBar = Math.max(1, ...expCats.map((c) => Math.max(c.total, c.budget)));
 
     const trendMonths = useMemo(() => { const out = []; for (let i = 5; i >= 0; i--) out.push(U.addMonths(month, -i)); return out; }, [month]);
@@ -45,18 +46,21 @@
       return out.sort((a, b) => b.val - a.val);
     };
     const fixedTotal = U.sum(recurring, (r) => r.avg);
+    // Salary lines like "משכורת - <name>" get that person's colour.
+    const personIn = (text) => (state.settings.people || []).find((p) => text.includes(p));
 
     return html`
       <div class="page-head"><h1>דשבורד חודשי</h1><div class="grow"></div>
+        <label class="row small"><input type="checkbox" class="chk" checked=${noOneOff} onChange=${(e) => setNoOneOff(e.target.checked)} /> ללא הוצאות חד־פעמיות</label>
         <${MonthPicker} months=${months} value=${month} onChange=${setMonth} /></div>
 
       <div class="tiles">
-        <${Tile} label="הכנסות" value=${U.money(s.income)} foot=${html`<${Delta} cur=${s.income} ref=${prev && prev.income} label="מהחודש הקודם" />`} />
-        <${Tile} label="הוצאות" value=${U.money(s.expense)} foot=${html`<${Delta} cur=${s.expense} ref=${prev && prev.expense} goodWhenUp=${false} label="מהחודש הקודם" />
+        <${Tile} label="הכנסות" value=${U.money(s.income)} onClick=${() => go('transactions', { month, kind: 'income' })} foot=${html`<${Delta} cur=${s.income} ref=${prev && prev.income} label="מהחודש הקודם" />`} />
+        <${Tile} label="הוצאות" value=${U.money(s.expense)} onClick=${() => go('transactions', { month, kind: 'expense' })} foot=${html`<${Delta} cur=${s.expense} ref=${prev && prev.expense} goodWhenUp=${false} label="מהחודש הקודם" />
           ${avg && html`<span>ממוצע 3 ח׳: ${U.money(avg.expense)}</span>`}`} />
-        <${Tile} label="חיסכון והשקעה" value=${U.money(s.saving)} foot=${avg && html`<span>ממוצע 3 ח׳: ${U.money(avg.saving)}</span>`} />
-        <${Tile} hero label="נשאר בחשבון (אחרי חיסכון)" value=${U.money(s.leftover)}
-          foot=${html`<span>הכנסות פחות הוצאות: ${U.money(s.net)}</span>`} title="הכנסות פחות הוצאות פחות הפקדות לחיסכון" />
+        <${Tile} label="חיסכון והשקעה" value=${U.money(s.saving)} onClick=${() => go('transactions', { month, kind: 'saving' })} foot=${avg && html`<span>ממוצע 3 ח׳: ${U.money(avg.saving)}</span>`} />
+        <${Tile} hero label="נשאר בחשבון (אחרי חיסכון)" value=${U.money(s.leftover)} onClick=${() => go('transactions', { month })}
+          foot=${html`<span>הכנסות פחות הוצאות: ${U.money(s.net)}</span>`} title="הכנסות פחות הוצאות פחות הפקדות לחיסכון · לחצו לכל עסקאות החודש" />
         <${Tile} label="שיעור חיסכון" value=${U.pct(s.savingRate, 0)} foot=${html`<span>החלק מההכנסה שלא הוצא</span>`} />
       </div>
 
@@ -84,7 +88,7 @@
 
         <div class="stack">
           <div class="card"><h2>הכנסות</h2>
-            ${kindRows('income').map((r) => html`<div class="block-r" style="border:0;padding:4px 0" onClick=${() => setDrill({ cat: r.cat, sub: r.sub })}><span>${r.sub}</span><span class="n">${U.money(r.val)}</span></div>`)}
+            ${kindRows('income').map((r) => html`<div class="block-r" style="border:0;padding:4px 0" onClick=${() => setDrill({ cat: r.cat, sub: r.sub })}><span>${personIn(r.sub) ? html`<span class="chip" style=${'--c:' + CAT.ownerColor(personIn(r.sub), state.settings.people)}>${r.sub}</span>` : r.sub}</span><span class="n">${U.money(r.val)}</span></div>`)}
             ${!kindRows('income').length && html`<div class="muted small">אין הכנסות בחודש זה</div>`}
           </div>
           <div class="card"><h2>חיסכון והשקעה</h2>
@@ -114,6 +118,8 @@
         </div>
       </div>
 
+      <${MonthCompare} key=${month} state=${state} month=${month} months=${months} onDrill=${setDrill} />
+
       <div class="card mt">
         <div class="card-head"><h2>פירוט לפי תתי־קטגוריות</h2><div class="grow"></div>
           <button class="btn sm" onClick=${() => setShowBlocks(!showBlocks)}>${showBlocks ? 'הסתר' : 'הצג'}</button></div>
@@ -135,6 +141,36 @@
 
       ${drill && html`<${DrillModal} month=${month} drill=${drill} onClose=${() => setDrill(null)} />`}
     `;
+  }
+
+  // This month next to any other month, per category, biggest changes first.
+  function MonthCompare({ state, month, months, onDrill }) {
+    const others = months.filter((m) => m !== month);
+    const [other, setOther] = useState(() => F.prevMonths(state, month, 1)[0] || others[others.length - 1] || '');
+    if (!others.length) return null;
+    const a = F.monthSummary(state, month), b = F.monthSummary(state, other);
+    const cats = [...new Set([...Object.keys(a.byCat), ...Object.keys(b.byCat)])].filter((c) => CAT.kindOf(c) === 'expense');
+    const rows = cats.map((c) => ({ cat: c, a: a.byCat[c] ? a.byCat[c].total : 0, b: b.byCat[c] ? b.byCat[c].total : 0 }))
+      .map((r) => ({ ...r, d: r.a - r.b })).filter((r) => r.a || r.b).sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+    const line = (label, x, y, goodUp, bold) => { const d = x - y; return html`<tr>
+      <td>${bold ? html`<strong>${label}</strong>` : label}</td><td class="n">${U.money(x)}</td><td class="n">${U.money(y)}</td>
+      <td class=${'n ' + (Math.abs(d) < 1 ? 'muted' : (d > 0) === goodUp ? 'cmp-down' : 'cmp-up')}>${d > 0 ? '+' : ''}${U.money(d)}</td>
+      <td class="n small muted">${y ? U.pct(d / Math.abs(y), 0) : '—'}</td></tr>`; };
+    return html`<div class="card mt">
+      <div class="card-head"><h2>השוואה בין חודשים</h2><span class="sub">${U.monthLabel(month)} מול</span>
+        <select class="select sm" value=${other} onChange=${(e) => setOther(e.target.value)}>${[...others].reverse().map((m) => html`<option value=${m}>${U.monthLabel(m)}</option>`)}</select></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th></th><th class="n">${U.monthShort(month)}</th><th class="n">${U.monthShort(other)}</th><th class="n">שינוי</th><th class="n">%</th></tr></thead>
+        <tbody>
+          ${line('הכנסות', a.income, b.income, true, true)}
+          ${line('הוצאות', a.expense, b.expense, false, true)}
+          ${line('חיסכון והשקעה', a.saving, b.saving, true, true)}
+          ${rows.map((r) => html`<tr style="cursor:pointer" onClick=${() => onDrill({ cat: r.cat })}>
+            <td><span class="chip" style=${'--c:' + (CAT.colorOf(r.cat) || '#888')}>${r.cat}</span></td><td class="n">${U.money(r.a)}</td><td class="n">${U.money(r.b)}</td>
+            <td class=${'n ' + (Math.abs(r.d) < 1 ? 'muted' : r.d > 0 ? 'cmp-up' : 'cmp-down')}>${r.d > 0 ? '+' : ''}${U.money(r.d)}</td>
+            <td class="n small muted">${r.b ? U.pct(r.d / Math.abs(r.b), 0) : 'חדש'}</td></tr>`)}
+        </tbody></table></div>
+      <div class="small muted" style="margin-top:6px">ירוק = טוב (פחות הוצאה / יותר הכנסה), אדום = הוצאה גבוהה יותר. לחצו על קטגוריה לפירוט.</div>
+    </div>`;
   }
 
   function DrillModal({ month, drill, onClose }) {

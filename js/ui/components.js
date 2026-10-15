@@ -44,9 +44,30 @@
     return html`<span class=${'delta ' + (good ? 'good' : 'bad')} title=${'לעומת ' + U.money(ref)}>${up ? '▲' : '▼'} ${U.pct(Math.abs(diff / ref), 0)} ${label || ''}</span>`;
   }
 
-  function Tile({ label, value, foot, hero, title }) {
-    return html`<div class=${'tile' + (hero ? ' hero' : '')} title=${title || ''}>
-      <div class="label">${label}</div><div class="value">${value}</div>${foot && html`<div class="foot">${foot}</div>`}</div>`;
+  // onClick makes the tile a link to the rows behind the number.
+  function Tile({ label, value, foot, hero, title, onClick, active }) {
+    const cls = 'tile' + (hero ? ' hero' : '') + (onClick ? ' clickable' : '') + (active ? ' active' : '');
+    const keys = onClick ? { role: 'button', tabIndex: 0, onKeyDown: (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick()) } : {};
+    return html`<div class=${cls} title=${title || (onClick ? 'לחצו לפירוט' : '')} onClick=${onClick} ...${keys}>
+      <div class="label">${label}${onClick && html`<span class="go" aria-hidden="true">‹</span>`}</div><div class="value">${value}</div>${foot && html`<div class="foot">${foot}</div>`}</div>`;
+  }
+
+  // Coloured name chip for a household member.
+  function OwnerChip({ owner, people }) {
+    const c = A.CAT.ownerColor(owner, people);
+    return c ? html`<span class="chip" style=${'--c:' + c}>${owner}</span>` : null;
+  }
+
+  // Row of filter dropdowns. filters: [{ key, label, options: [[value, text]] }]
+  function FilterBar({ filters, value, onChange, children }) {
+    const active = filters.some((f) => value[f.key]);
+    return html`<div class="filterbar">
+      ${filters.map((f) => html`<label class="row small" style="gap:4px;flex-wrap:nowrap"><span class="muted">${f.label}</span>
+        <select class="select sm" value=${value[f.key] || ''} onChange=${(e) => onChange({ ...value, [f.key]: e.target.value })}>
+          <option value="">הכל</option>${f.options.map(([v, t]) => html`<option value=${v}>${t}</option>`)}</select></label>`)}
+      ${children}
+      ${active && html`<button class="btn sm ghost" onClick=${() => onChange({})}>ניקוי סינון</button>`}
+    </div>`;
   }
 
   function MonthPicker({ months, value, onChange }) {
@@ -107,5 +128,5 @@
     return html`<div class="empty"><div class="big">${title}</div>${children}</div>`;
   }
 
-  A.ui = { html, Toasts, Modal, Delta, Tile, MonthPicker, CatSelect, NumInput, TextInput, Seg, Empty };
+  A.ui = { html, Toasts, Modal, Delta, Tile, OwnerChip, FilterBar, MonthPicker, CatSelect, NumInput, TextInput, Seg, Empty };
 })(window.App);
