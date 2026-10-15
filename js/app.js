@@ -2,7 +2,7 @@
 (function (A) {
   const { html, render, useState, useEffect } = htmPreact;
   const { ui } = A;
-  A.VERSION = 3; // bump together with the ?v= query in index.html
+  A.VERSION = 4; // bump together with the ?v= query in index.html
 
   const TABS = [
     ['dashboard', 'דשבורד', '📊', ui.Dashboard],

@@ -170,6 +170,13 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .filterbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 10px; margin-bottom: 12px; background: var(--surface-2); border-radius: 10px; }
 .cmp-up { color: var(--critical); } .cmp-down { color: var(--good); }
 
+.sim-q { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 15px; font-weight: 550; }
+.sim-card { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: var(--surface-2); }
+.sim-card.best { border-color: var(--good-mark); box-shadow: 0 0 0 1px var(--good-mark); background: color-mix(in srgb, var(--good-mark) 6%, var(--surface)); }
+.sim-card .sim-title { font-weight: 700; font-size: 14.5px; margin-bottom: 2px; }
+.sim-card .big { font-size: 26px; font-weight: 750; margin-top: 10px; color: var(--good); }
+.sim-card ul { margin: 10px 0 0; padding-inline-start: 18px; font-size: 13px; line-height: 1.7; }
+
 /* ---------- alerts ---------- */
 .alerts { display: flex; flex-direction: column; gap: 6px; }
 .alert { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 9px; background: var(--surface-2); border-inline-start: 3px solid var(--muted); font-size: 13.5px; }

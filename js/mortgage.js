@@ -124,7 +124,9 @@
     const k = cfg.tracks.findIndex((t) => t.id === trackId);
     const lastIdx = (s) => s.rows.reduce((acc, r, i) => (r.tracks[k] && r.tracks[k].pay > 0 ? i : acc), 0);
     const nextPay = (s) => (s.rows[from + 1] ? s.rows[from + 1].pay : 0);
+    const nextTrackPay = (s) => (s.rows[from + 1] && s.rows[from + 1].tracks[k] ? s.rows[from + 1].tracks[k].pay : 0);
     return {
+      trackPayBefore: nextTrackPay(base), trackPayAfter: nextTrackPay(alt),
       saved: paid(base) - paid(alt) - amount,
       interestSaved: U.sum(base.rows.slice(from), (r) => r.interest + r.indexation) - U.sum(alt.rows.slice(from), (r) => r.interest + r.indexation),
       monthsSaved: lastIdx(base) - lastIdx(alt),

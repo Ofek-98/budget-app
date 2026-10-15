@@ -5,6 +5,7 @@
   const { Tile, NumInput, TextInput, Chart, Empty, Seg } = A.ui;
   const TYPE_LABEL = { fixed: 'קבועה', variable: 'משתנה', prime: 'פריים' };
   const SLOTS = ['--s1', '--s2', '--s3', '--s4', '--s5'];
+  const TRACK_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4']; // same order as the balance chart
 
   function MortgageView() {
     const [state, v] = A.store.use();
@@ -25,6 +26,7 @@
     const cfg = state.mortgage;
     const upd = (fn) => A.store.update((s) => fn(s.mortgage));
     const [trackFilter, setTrackFilter] = useState('');
+    const [trackView, setTrackView] = useState('pay');
     const [busy, setBusy] = useState(false);
     const actuals = useMemo(() => M.actualPayments(state), [v]);
     const sched = useMemo(() => M.compute(cfg, [], actuals), [v]);
@@ -74,10 +76,8 @@
         </div>
       </div>
 
-      <div class="grid g2 mt">
-        <${Simulator} cfg=${cfg} actuals=${actuals} />
-        <${Decision} cfg=${cfg} settings=${state.settings} actuals=${actuals} />
-      </div>
+      <div class="mt"><${Simulator} cfg=${cfg} actuals=${actuals} sum=${sum} /></div>
+      <div class="mt"><${Decision} cfg=${cfg} settings=${state.settings} actuals=${actuals} /></div>
 
       <${ActualVsPlan} sched=${sched} cfg=${cfg} />
 
@@ -124,8 +124,12 @@
       <div class="card mt" id="m-schedule"><div class="card-head"><h2>לוח סילוקין</h2><div class="grow"></div>
           <label class="row small" style="gap:4px"><span class="muted">מסלול</span><select class="select sm" value=${trackFilter} onChange=${(e) => setTrackFilter(e.target.value)}>
             <option value="">כל המסלולים</option>${cfg.tracks.map((t, k) => html`<option value=${k}>${t.name}</option>`)}</select></label></div>
-        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>שנה</th><th class="n">תשלומים</th><th class="n">מתוכם ריבית</th><th class="n">הצמדה</th><th class="n">פירעון מוקדם</th><th class="n">יתרה בסוף השנה</th></tr></thead>
-          <tbody>${years.map((y) => html`<${YearRow} key=${y.y + trackFilter} y=${y} k=${trackFilter === '' ? null : +trackFilter} />`)}</tbody></table></div>
+        ${trackFilter === '' && html`<div class="row small" style="margin-bottom:8px"><span class="muted">בעמודות המסלולים:</span>
+          <${Seg} value=${trackView} onChange=${setTrackView} options=${[['pay', 'תשלום לכל מסלול'], ['bal', 'יתרה לכל מסלול']]} /></div>`}
+        <div class="tbl-wrap"><table class="tbl"><thead><tr><th>שנה</th><th class="n">סה״כ תשלום</th>
+            ${trackFilter === '' && cfg.tracks.map((t, i) => html`<th class="n"><span class="chip" style=${'--c:' + TRACK_COLORS[i % TRACK_COLORS.length]}>${t.name}</span></th>`)}
+            <th class="n">מתוכם ריבית</th><th class="n">הצמדה</th><th class="n">פירעון מוקדם</th><th class="n">יתרה כוללת</th></tr></thead>
+          <tbody>${years.map((y) => html`<${YearRow} key=${y.y + trackFilter} y=${y} k=${trackFilter === '' ? null : +trackFilter} nTracks=${trackFilter === '' ? cfg.tracks.length : 0} view=${trackView} />`)}</tbody></table></div>
         <div class="small muted" style="margin-top:6px">בחודשים שעברו מוצג התשלום בפועל (✓). בחודשים הבאים: ההחזר לפי ריבית בנק ישראל והמדד${sum.extra ? `, ועוד תוספת קבועה של ${U.money(sum.extra, true)} שנלמדה מהתשלומים בפועל` : ''}.</div>
       </div>
     `;
@@ -139,7 +143,8 @@
   }
 
   // One year of the schedule; k = track index to show a single track, null for all.
-  function YearRow({ y, k }) {
+  // nTracks > 0 adds a column per track showing its payment (view 'pay') or its balance (view 'bal').
+  function YearRow({ y, k, nTracks, view }) {
     const [open, setOpen] = useState(false);
     const now = U.thisMonth();
     // All tracks: past months show what was actually paid, future months include the recurring add-on.
@@ -147,10 +152,15 @@
     const rows = y.rows.map(pick);
     const t = { pay: U.sum(rows, (r) => r.pay), interest: U.sum(rows, (r) => r.interest), indexation: U.sum(rows, (r) => r.indexation), prepay: U.sum(rows, (r) => r.prepay), bal: rows[rows.length - 1].bal };
     if (k != null && !t.pay && !t.bal) return null;
+    const idx = Array.from({ length: nTracks || 0 }, (_, i) => i);
+    const yearTrack = (i) => (view === 'bal' ? y.rows[y.rows.length - 1].tracks[i].bal : U.sum(y.rows, (r) => r.tracks[i].pay));
+    const cell = (v) => html`<td class="n">${v ? U.money(v) : '—'}</td>`;
     return html`<tr style="cursor:pointer" onClick=${() => setOpen(!open)} class=${y.y === now.slice(0, 4) ? 'sel' : ''}>
-        <td>${open ? '▾' : '▸'} ${y.y}</td><td class="n">${U.money(t.pay)}</td><td class="n">${U.money(t.interest)}</td><td class="n">${U.money(t.indexation)}</td><td class="n">${t.prepay ? U.money(t.prepay) : ''}</td><td class="n">${U.money(t.bal)}</td></tr>
-      ${open && rows.map((r) => html`<tr class="small" style=${r.ym === now ? 'font-weight:700' : ''}><td style="padding-inline-start:26px">${U.monthLabel(r.ym)} <span class="muted">פריים ${U.pct(r.prime, 2)}</span>${r.calibrated ? html` <span class="badge good" title="תשלום בפועל">✓ בפועל</span>` : ''}</td>
-        <td class="n">${U.money(r.pay)}</td><td class="n">${U.money(r.interest)}</td><td class="n">${U.money(r.indexation)}</td><td class="n">${r.prepay ? U.money(r.prepay) : ''}</td><td class="n">${U.money(r.bal)}</td></tr>`)}`;
+        <td>${open ? '▾' : '▸'} ${y.y}</td><td class="n"><strong>${U.money(t.pay)}</strong></td>${idx.map((i) => cell(yearTrack(i)))}
+        <td class="n">${U.money(t.interest)}</td><td class="n">${U.money(t.indexation)}</td><td class="n">${t.prepay ? U.money(t.prepay) : ''}</td><td class="n">${U.money(t.bal)}</td></tr>
+      ${open && y.rows.map((raw, j) => { const r = rows[j]; return html`<tr class="small" style=${r.ym === now ? 'font-weight:700' : ''}><td style="padding-inline-start:26px;white-space:nowrap">${U.monthLabel(r.ym)} <span class="muted">פריים ${U.pct(r.prime, 2)}</span>${r.calibrated ? html` <span class="badge good" title="תשלום בפועל">✓ בפועל</span>` : ''}</td>
+        <td class="n">${U.money(r.pay)}</td>${idx.map((i) => cell(view === 'bal' ? raw.tracks[i].bal : raw.tracks[i].pay))}
+        <td class="n">${U.money(r.interest)}</td><td class="n">${U.money(r.indexation)}</td><td class="n">${r.prepay ? U.money(r.prepay) : ''}</td><td class="n">${U.money(r.bal)}</td></tr>`; })}`;
   }
 
   function AddRow({ fields, onAdd, tracks }) {
@@ -165,26 +175,60 @@
       <button class="btn sm" disabled=${!ok} onClick=${() => { const out = { ...r }; for (const [k, t] of fields) { if (t === 'num') out[k] = parseFloat(out[k]); if (t === 'pct') out[k] = parseFloat(out[k]) / 100; } onAdd(out); setR(init()); }}>הוספה</button></div>`;
   }
 
-  // Shows both ways of prepaying side by side: shorter term vs lower payment.
-  function Simulator({ cfg, actuals }) {
+  const duration = (n) => {
+    const y = Math.floor(n / 12), m = n % 12;
+    return [y ? (y === 1 ? 'שנה' : y === 2 ? 'שנתיים' : `${y} שנים`) : '', m ? (m === 1 ? 'חודש' : `${m} חודשים`) : ''].filter(Boolean).join(' ו־') || '—';
+  };
+
+  // Plain-language what-if: "if I repay X from track Y in month Z" → the two options side by side.
+  function Simulator({ cfg, actuals, sum }) {
     const [amount, setAmount] = useState(100000);
     const [trackId, setTrackId] = useState(cfg.tracks[0].id);
     const [month, setMonth] = useState(U.addMonths(U.thisMonth(), 1));
+    const [fee, setFee] = useState(0);
     const res = useMemo(() => (amount > 0 ? ['shorten', 'reduce'].map((mode) => M.simulate(cfg, { month, trackId, amount, mode }, actuals)) : null), [A.store.version(), amount, trackId, month]);
-    const better = res && (res[0].saved >= res[1].saved ? 0 : 1);
+    const track = cfg.tracks.find((t) => t.id === trackId);
+    const pt = sum.perTrack.find((p) => p.track.id === trackId) || {};
+    const priciest = [...sum.perTrack].filter((p) => p.bal > 0).sort((a, b) => (b.rate + (b.track.cpi ? cfg.inflation : 0)) - (a.rate + (a.track.cpi ? cfg.inflation : 0)))[0];
+    const [sh, rd] = res || [];
     return html`<div class="card"><h2>סימולטור פירעון מוקדם</h2>
-      <div class="grid g3">
-        <label class="field">סכום (₪)<${NumInput} value=${amount} onCommit=${(x) => setAmount(x || 0)} /></label>
-        <label class="field">מסלול<select class="select" value=${trackId} onChange=${(e) => setTrackId(e.target.value)}>${cfg.tracks.map((t) => html`<option value=${t.id}>${t.name}</option>`)}</select></label>
-        <label class="field">חודש<input class="input" type="month" value=${month} onInput=${(e) => setMonth(e.target.value)} /></label>
+      <div class="sim-q">
+        <span>אם אפרע</span><${NumInput} value=${amount} width="120px" onCommit=${(x) => setAmount(x || 0)} /><span>₪ ממסלול</span>
+        <select class="select" value=${trackId} onChange=${(e) => setTrackId(e.target.value)}>${cfg.tracks.map((t) => html`<option value=${t.id}>${t.name}</option>`)}</select>
+        <span>ב־</span><input class="input" type="month" value=${month} onInput=${(e) => setMonth(e.target.value)} />
       </div>
-      ${res && html`<div class="tbl-wrap mt"><table class="tbl"><thead><tr><th></th><th class="n">קיצור תקופה</th><th class="n">הקטנת החזר</th></tr></thead><tbody>
-        <tr><td>חיסכון נטו בתשלומים</td>${res.map((r, i) => html`<td class="n"><strong>${U.money(r.saved)}</strong>${i === better ? html` <span class="badge good">יותר</span>` : ''}</td>`)}</tr>
-        <tr><td>ריבית + הצמדה שנחסכות</td>${res.map((r) => html`<td class="n">${U.money(r.interestSaved)}</td>`)}</tr>
-        <tr><td>החזר חודשי (כולל)</td>${res.map((r) => html`<td class="n">${U.money(r.payBefore)} ← ${U.money(r.payAfter)}</td>`)}</tr>
-        <tr><td>סיום המסלול</td>${res.map((r) => html`<td class="n">${U.monthShort(r.payoffAfter)}${r.monthsSaved ? ` (${r.monthsSaved} ח׳ פחות)` : ''}</td>`)}</tr>
-      </tbody></table></div>`}
-      <div class="small muted mt">קיצור תקופה חוסך יותר ריבית; הקטנת החזר משאירה יותר כסף פנוי כל חודש. לא כולל עמלת פירעון מוקדם — בדקו מול הבנק לפני ביצוע.</div>
+      <div class="row small" style="margin:6px 0 4px">
+        <span class="muted">סכום מהיר:</span>
+        ${[50000, 100000, 200000].map((v) => html`<button class=${'btn sm' + (amount === v ? ' primary' : '')} onClick=${() => setAmount(v)}>${U.money(v)}</button>`)}
+        ${pt.bal > 0 && html`<button class="btn sm" onClick=${() => setAmount(Math.round(pt.bal))}>כל המסלול (${U.money(pt.bal)})</button>`}
+      </div>
+      ${priciest && priciest.track.id !== trackId && html`<div class="small" style="margin-bottom:8px">💡 המסלול היקר ביותר כרגע הוא <a href="#" onClick=${(e) => { e.preventDefault(); setTrackId(priciest.track.id); }}>${priciest.track.name}</a> — בדרך כלל עדיף לפרוע אותו קודם.</div>`}
+      ${res && html`<div class="grid g2 mt">
+        <div class=${'sim-card' + (sh.saved - fee >= rd.saved - fee ? ' best' : '')}>
+          <div class="sim-title">אפשרות א׳: לקצר את התקופה</div>
+          <div class="muted small">ההחזר החודשי נשאר כמו שהוא, והמסלול נגמר מוקדם יותר</div>
+          <div class="big">${U.money(sh.saved - fee)}</div><div class="small muted">חיסכון נטו בתשלומים</div>
+          <ul>
+            <li>המסלול ייגמר ב־<strong>${U.monthLabel(sh.payoffAfter)}</strong>, <strong>${duration(sh.monthsSaved)}</strong> לפני המועד המקורי (${U.monthShort(sh.payoffBefore)})</li>
+            <li>ההחזר במסלול נשאר כ־${U.money(sh.trackPayAfter)} בחודש</li>
+          </ul>
+        </div>
+        <div class=${'sim-card' + (rd.saved - fee > sh.saved - fee ? ' best' : '')}>
+          <div class="sim-title">אפשרות ב׳: להקטין את ההחזר</div>
+          <div class="muted small">המסלול נגמר במועד המקורי, וההחזר החודשי יורד</div>
+          <div class="big">${U.money(rd.saved - fee)}</div><div class="small muted">חיסכון נטו בתשלומים</div>
+          <ul>
+            <li>ההחזר במסלול יירד מ־${U.money(rd.trackPayBefore)} ל־<strong>${U.money(rd.trackPayAfter)}</strong> — <strong>${U.money(rd.trackPayBefore - rd.trackPayAfter)} פחות בכל חודש</strong></li>
+            <li>המסלול ייגמר כמתוכנן, ב־${U.monthLabel(rd.payoffAfter)}</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout small mt">
+        ${track.name}: קיצור תקופה חוסך <strong>${U.money(sh.saved - rd.saved)}</strong> יותר, אבל הקטנת ההחזר משאירה <strong>${U.money(rd.trackPayBefore - rd.trackPayAfter)}</strong> פנויים כל חודש.
+        אם הסכום הפנוי ייחסך או יושקע בכל חודש, ההפרש מצטמצם. אם הוא ייכנס להוצאות השוטפות — קיצור תקופה משתלם יותר.
+      </div>`}
+      <div class="row small mt"><label class="row" style="gap:6px">עמלת פירעון מוקדם (מהבנק, ₪)<${NumInput} small value=${fee} width="90px" onCommit=${(x) => setFee(x || 0)} /></label>
+        <span class="muted">— נמצאת בדוח היתרות לסילוק. במסלול פריים לרוב אין עמלה.</span></div>
     </div>`;
   }
 
